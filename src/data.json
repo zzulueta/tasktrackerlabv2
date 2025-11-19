@@ -1,0 +1,16 @@
+[
+  {
+    "id": 2,
+    "title": "Buy apples",
+    "description": "2 pieces",
+    "done": false,
+    "due_date": ""
+  },
+  {
+    "id": 3,
+    "title": "Buy groceries",
+    "description": "milk, eggs",
+    "done": false,
+    "due_date": "2025-11-12"
+  }
+]
