@@ -2,7 +2,7 @@ import argparse
 import json
 import os
 from datetime import datetime
-from tasks import list_tasks, create_task, get_task, update_task, delete_task
+from tasks import list_tasks, list_tasks_by_status, create_task, get_task, update_task, delete_task
 
 DEFAULT_DB = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data.json")
 
@@ -11,7 +11,8 @@ def main():
     parser = argparse.ArgumentParser(description="Simple Task Tracker CLI")
     sub = parser.add_subparsers(dest="cmd")
 
-    sub.add_parser("list", help="List all tasks")
+    list_cmd = sub.add_parser("list", help="List all tasks")
+    list_cmd.add_argument("--status", choices=["todo", "in-progress", "done"], help="Filter tasks by status")
 
     add = sub.add_parser("add", help="Add a task")
     add.add_argument("title")
@@ -38,7 +39,11 @@ def main():
     db = args.db
 
     if args.cmd == "list":
-        tasks = list_tasks(db)
+        if args.status:
+            tasks = list_tasks_by_status(db, args.status)
+            print(f"Tasks with status '{args.status}': {len(tasks)}")
+        else:
+            tasks = list_tasks(db)
         print(json.dumps(tasks, indent=2))
     elif args.cmd == "add":
         if args.due:

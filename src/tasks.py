@@ -61,7 +61,7 @@ def load_tasks(path: Optional[str] = None) -> List[Dict[str, Any]]:
             data = json.load(f)
             if not isinstance(data, list):
                 return []
-            # Migrate existing tasks to include timestamps
+            # Migrate existing tasks to include timestamps and status
             now = datetime.now().isoformat()
             for item in data:
                 if isinstance(item, dict):
@@ -70,6 +70,10 @@ def load_tasks(path: Optional[str] = None) -> List[Dict[str, Any]]:
                     # Add timestamps if missing (data migration)
                     item.setdefault('createdAt', now)
                     item.setdefault('updatedAt', now)
+                    # Add status field if missing (data migration)
+                    if 'status' not in item:
+                        # Migrate from done boolean: done=True -> 'done', done=False -> 'todo'
+                        item['status'] = 'done' if item.get('done', False) else 'todo'
             return data
     except (json.JSONDecodeError, FileNotFoundError):
         return []
@@ -91,11 +95,35 @@ def _next_id(tasks: List[Dict[str, Any]]) -> int:
     return max((t.get('id', 0) for t in tasks), default=0) + 1
 
 
+VALID_STATUSES = ['todo', 'in-progress', 'done']
+
+
 def list_tasks(path: Optional[str] = None) -> List[Dict[str, Any]]:
     return load_tasks(path)
 
 
-def create_task(path: str, title: str, description: str = "", due_date: Optional[str] = "") -> Dict[str, Any]:
+def list_tasks_by_status(path: Optional[str], status: str) -> List[Dict[str, Any]]:
+    """
+    List tasks filtered by status.
+    
+    Args:
+        path: Path to the JSON database file
+        status: Status to filter by ('todo', 'in-progress', or 'done')
+    
+    Returns:
+        List of tasks matching the specified status
+    
+    Raises:
+        ValueError: If status is not one of the valid values
+    """
+    if status not in VALID_STATUSES:
+        raise ValueError(f"Invalid status '{status}'. Must be one of: {', '.join(VALID_STATUSES)}")
+    
+    tasks = load_tasks(path)
+    return [task for task in tasks if task.get('status') == status]
+
+
+def create_task(path: str, title: str, description: str = "", due_date: Optional[str] = "", status: str = "todo") -> Dict[str, Any]:
     tasks = load_tasks(path)
     tid = _next_id(tasks)
     now = datetime.now().isoformat()
@@ -104,6 +132,7 @@ def create_task(path: str, title: str, description: str = "", due_date: Optional
         "title": title,
         "description": description,
         "done": False,
+        "status": status,
         "due_date": due_date if due_date is not None else "",
         "createdAt": now,
         "updatedAt": now,
