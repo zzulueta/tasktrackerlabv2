@@ -667,3 +667,212 @@ def test_delete_task_nonexistent_file_path(tmp_path):
     assert path.exists()
     saved = load_tasks(str(path))
     assert len(saved) == 0
+
+
+# ========================================
+# Timestamp Tests (createdAt/updatedAt)
+# ========================================
+
+def test_create_task_includes_timestamps(tmp_path):
+    """Test that newly created tasks have createdAt and updatedAt timestamps"""
+    from src.tasks import create_task
+    from datetime import datetime
+
+    path = tmp_path / "tasks.json"
+    task = create_task(str(path), "New Task", "Description")
+    
+    assert "createdAt" in task
+    assert "updatedAt" in task
+    assert task["createdAt"] is not None
+    assert task["updatedAt"] is not None
+    
+    # Verify timestamps are in ISO 8601 format
+    created = datetime.fromisoformat(task["createdAt"])
+    updated = datetime.fromisoformat(task["updatedAt"])
+    
+    # For new tasks, both should be approximately the same
+    assert task["createdAt"] == task["updatedAt"]
+    assert isinstance(created, datetime)
+    assert isinstance(updated, datetime)
+
+
+def test_create_task_timestamps_are_current(tmp_path):
+    """Test that timestamps reflect the current time"""
+    from src.tasks import create_task
+    from datetime import datetime, timedelta
+
+    path = tmp_path / "tasks.json"
+    before = datetime.now()
+    task = create_task(str(path), "Test", "Test")
+    after = datetime.now()
+    
+    created = datetime.fromisoformat(task["createdAt"])
+    
+    # Timestamp should be between before and after
+    assert before - timedelta(seconds=1) <= created <= after + timedelta(seconds=1)
+
+
+def test_update_task_updates_updatedAt_timestamp(tmp_path):
+    """Test that updating a task updates the updatedAt timestamp"""
+    from src.tasks import create_task, update_task
+    from datetime import datetime
+    import time
+
+    path = tmp_path / "tasks.json"
+    original = create_task(str(path), "Task", "Description")
+    original_created = original["createdAt"]
+    original_updated = original["updatedAt"]
+    
+    # Wait a moment to ensure different timestamp
+    time.sleep(0.01)
+    
+    updated = update_task(str(path), original["id"], title="Updated Task")
+    
+    assert updated is not None
+    assert "createdAt" in updated
+    assert "updatedAt" in updated
+    
+    # createdAt should remain unchanged
+    assert updated["createdAt"] == original_created
+    
+    # updatedAt should be different (newer)
+    assert updated["updatedAt"] != original_updated
+    
+    updated_time = datetime.fromisoformat(updated["updatedAt"])
+    original_time = datetime.fromisoformat(original_updated)
+    assert updated_time > original_time
+
+
+def test_update_task_preserves_createdAt(tmp_path):
+    """Test that createdAt is never modified during updates"""
+    from src.tasks import create_task, update_task
+    import time
+
+    path = tmp_path / "tasks.json"
+    original = create_task(str(path), "Task", "Desc")
+    original_created = original["createdAt"]
+    
+    time.sleep(0.01)
+    
+    # Multiple updates
+    update_task(str(path), original["id"], title="Update 1")
+    time.sleep(0.01)
+    update_task(str(path), original["id"], description="Update 2")
+    time.sleep(0.01)
+    final = update_task(str(path), original["id"], done=True)
+    
+    # createdAt should still be the original
+    assert final["createdAt"] == original_created
+
+
+def test_load_tasks_migrates_existing_tasks_without_timestamps(tmp_path):
+    """Test that existing tasks without timestamps get default values"""
+    from src.tasks import load_tasks
+    from datetime import datetime
+
+    path = tmp_path / "tasks.json"
+    
+    # Create a task without timestamps (simulating old data)
+    old_task_json = '[{"id": 1, "title": "Old Task", "description": "No timestamps", "done": false, "due_date": ""}]'
+    path.write_text(old_task_json, encoding="utf-8")
+    
+    # Load tasks - should trigger migration
+    tasks = load_tasks(str(path))
+    
+    assert len(tasks) == 1
+    task = tasks[0]
+    
+    # Timestamps should be added
+    assert "createdAt" in task
+    assert "updatedAt" in task
+    assert task["createdAt"] is not None
+    assert task["updatedAt"] is not None
+    
+    # Verify timestamps are valid ISO 8601
+    created = datetime.fromisoformat(task["createdAt"])
+    updated = datetime.fromisoformat(task["updatedAt"])
+    assert isinstance(created, datetime)
+    assert isinstance(updated, datetime)
+    
+    # For migrated tasks, both should be the same
+    assert task["createdAt"] == task["updatedAt"]
+
+
+def test_load_tasks_preserves_existing_timestamps(tmp_path):
+    """Test that tasks with existing timestamps keep their values"""
+    from src.tasks import load_tasks
+
+    path = tmp_path / "tasks.json"
+    
+    # Create a task with specific timestamps
+    existing_created = "2025-01-15T10:30:00.123456"
+    existing_updated = "2025-11-19T14:45:00.789012"
+    
+    task_json = f'[{{"id": 1, "title": "Task", "description": "Desc", "done": false, "due_date": "", "createdAt": "{existing_created}", "updatedAt": "{existing_updated}"}}]'
+    path.write_text(task_json, encoding="utf-8")
+    
+    tasks = load_tasks(str(path))
+    
+    assert len(tasks) == 1
+    task = tasks[0]
+    
+    # Timestamps should be preserved
+    assert task["createdAt"] == existing_created
+    assert task["updatedAt"] == existing_updated
+
+
+def test_timestamps_persist_across_save_load(tmp_path):
+    """Test that timestamps are properly saved and loaded"""
+    from src.tasks import create_task, load_tasks
+
+    path = tmp_path / "tasks.json"
+    
+    original = create_task(str(path), "Persistent Task", "Test")
+    original_created = original["createdAt"]
+    original_updated = original["updatedAt"]
+    
+    # Load tasks again
+    loaded = load_tasks(str(path))
+    
+    assert len(loaded) == 1
+    task = loaded[0]
+    
+    # Timestamps should match
+    assert task["createdAt"] == original_created
+    assert task["updatedAt"] == original_updated
+
+
+def test_multiple_tasks_have_unique_timestamps(tmp_path):
+    """Test that tasks created at different times have different timestamps"""
+    from src.tasks import create_task
+    import time
+
+    path = tmp_path / "tasks.json"
+    
+    task1 = create_task(str(path), "Task 1", "First")
+    time.sleep(0.01)
+    task2 = create_task(str(path), "Task 2", "Second")
+    
+    # Timestamps should be different
+    assert task1["createdAt"] != task2["createdAt"]
+    assert task1["updatedAt"] != task2["updatedAt"]
+
+
+def test_timestamp_format_is_iso8601(tmp_path):
+    """Test that timestamps are in proper ISO 8601 format"""
+    from src.tasks import create_task
+    from datetime import datetime
+    import re
+
+    path = tmp_path / "tasks.json"
+    task = create_task(str(path), "Format Test", "Check format")
+    
+    # ISO 8601 pattern (simplified check)
+    iso_pattern = r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}'
+    
+    assert re.match(iso_pattern, task["createdAt"])
+    assert re.match(iso_pattern, task["updatedAt"])
+    
+    # Should be parseable by datetime
+    datetime.fromisoformat(task["createdAt"])
+    datetime.fromisoformat(task["updatedAt"])

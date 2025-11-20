@@ -1,6 +1,40 @@
 import json
 import os
+from datetime import datetime
 from typing import List, Optional, Dict, Any
+
+
+def parse_date(date_str: str) -> Optional[str]:
+    """
+    Parse a date string in various formats and return in YYYY-MM-DD format.
+    Supported: MM-DD-YYYY, YYYY-MM-DD, MM/DD/YYYY, DD-MM-YYYY, etc.
+    Returns None if invalid.
+    """
+    if not date_str.strip():
+        return None
+    
+    # List of possible date formats to try
+    formats = [
+        '%m-%d-%Y',  # MM-DD-YYYY
+        '%Y-%m-%d',  # YYYY-MM-DD
+        '%m/%d/%Y',  # MM/DD/YYYY
+        '%d-%m-%Y',  # DD-MM-YYYY
+        '%d/%m/%Y',  # DD/MM/YYYY
+        '%Y/%m/%d',  # YYYY/MM/DD
+        '%d-%b-%Y',  # DD-Mon-YYYY (e.g., 01-Jan-2023)
+        '%b-%d-%Y',  # Mon-DD-YYYY
+        '%Y-%b-%d',  # YYYY-Mon-DD
+    ]
+    
+    for fmt in formats:
+        try:
+            parsed_date = datetime.strptime(date_str, fmt)
+            return parsed_date.strftime('%Y-%m-%d')
+        except ValueError:
+            continue
+    
+    # If no format matches, return None
+    return None
 
 
 def _default_data_path() -> str:
@@ -27,10 +61,15 @@ def load_tasks(path: Optional[str] = None) -> List[Dict[str, Any]]:
             data = json.load(f)
             if not isinstance(data, list):
                 return []
+            # Migrate existing tasks to include timestamps
+            now = datetime.now().isoformat()
             for item in data:
                 if isinstance(item, dict):
                     # ensure new key exists and default to empty string
                     item.setdefault('due_date', "")
+                    # Add timestamps if missing (data migration)
+                    item.setdefault('createdAt', now)
+                    item.setdefault('updatedAt', now)
             return data
     except (json.JSONDecodeError, FileNotFoundError):
         return []
@@ -59,12 +98,15 @@ def list_tasks(path: Optional[str] = None) -> List[Dict[str, Any]]:
 def create_task(path: str, title: str, description: str = "", due_date: Optional[str] = "") -> Dict[str, Any]:
     tasks = load_tasks(path)
     tid = _next_id(tasks)
+    now = datetime.now().isoformat()
     task = {
         "id": tid,
         "title": title,
         "description": description,
         "done": False,
         "due_date": due_date if due_date is not None else "",
+        "createdAt": now,
+        "updatedAt": now,
     }
     tasks.append(task)
     save_tasks(tasks, path)
@@ -88,6 +130,8 @@ def update_task(path: str, task_id: int, **kwargs) -> Optional[Dict[str, Any]]:
             to_update = {k: v for k, v in kwargs.items() if v is not None}
             # allow changing due_date to empty string explicitly
             t_updated.update(to_update)
+            # Update the updatedAt timestamp
+            t_updated['updatedAt'] = datetime.now().isoformat()
             tasks[i] = t_updated
             save_tasks(tasks, path)
             return t_updated
