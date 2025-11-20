@@ -876,3 +876,209 @@ def test_timestamp_format_is_iso8601(tmp_path):
     # Should be parseable by datetime
     datetime.fromisoformat(task["createdAt"])
     datetime.fromisoformat(task["updatedAt"])
+
+
+# ========================================
+# Status Management and Filtering Tests
+# ========================================
+
+def test_create_task_has_default_todo_status(tmp_path):
+    """Test that newly created tasks have default 'todo' status"""
+    from src.tasks import create_task
+
+    path = tmp_path / "tasks.json"
+    task = create_task(str(path), "New Task", "Description")
+    
+    assert "status" in task
+    assert task["status"] == "todo"
+
+
+def test_create_task_with_specific_status(tmp_path):
+    """Test creating tasks with specific status values"""
+    from src.tasks import create_task
+
+    path = tmp_path / "tasks.json"
+    
+    task1 = create_task(str(path), "Todo Task", "desc", status="todo")
+    assert task1["status"] == "todo"
+    
+    task2 = create_task(str(path), "In Progress Task", "desc", status="in-progress")
+    assert task2["status"] == "in-progress"
+    
+    task3 = create_task(str(path), "Done Task", "desc", status="done")
+    assert task3["status"] == "done"
+
+
+def test_load_tasks_migrates_done_to_status(tmp_path):
+    """Test that existing tasks without status get migrated from done field"""
+    from src.tasks import load_tasks
+
+    path = tmp_path / "tasks.json"
+    
+    # Create tasks without status field (simulating old data)
+    old_tasks = '[{"id": 1, "title": "Todo Task", "description": "", "done": false, "due_date": ""}, {"id": 2, "title": "Done Task", "description": "", "done": true, "due_date": ""}]'
+    path.write_text(old_tasks, encoding="utf-8")
+    
+    tasks = load_tasks(str(path))
+    
+    assert len(tasks) == 2
+    # done=false should migrate to status='todo'
+    assert tasks[0]["status"] == "todo"
+    # done=true should migrate to status='done'
+    assert tasks[1]["status"] == "done"
+
+
+def test_list_tasks_by_status_todo(tmp_path):
+    """Test filtering tasks by 'todo' status"""
+    from src.tasks import create_task, list_tasks_by_status
+
+    path = tmp_path / "tasks.json"
+    
+    create_task(str(path), "Task 1", "desc", status="todo")
+    create_task(str(path), "Task 2", "desc", status="in-progress")
+    create_task(str(path), "Task 3", "desc", status="todo")
+    create_task(str(path), "Task 4", "desc", status="done")
+    
+    todo_tasks = list_tasks_by_status(str(path), "todo")
+    
+    assert len(todo_tasks) == 2
+    assert all(task["status"] == "todo" for task in todo_tasks)
+    assert todo_tasks[0]["title"] == "Task 1"
+    assert todo_tasks[1]["title"] == "Task 3"
+
+
+def test_list_tasks_by_status_in_progress(tmp_path):
+    """Test filtering tasks by 'in-progress' status"""
+    from src.tasks import create_task, list_tasks_by_status
+
+    path = tmp_path / "tasks.json"
+    
+    create_task(str(path), "Task 1", "desc", status="todo")
+    create_task(str(path), "Task 2", "desc", status="in-progress")
+    create_task(str(path), "Task 3", "desc", status="in-progress")
+    create_task(str(path), "Task 4", "desc", status="done")
+    
+    in_progress_tasks = list_tasks_by_status(str(path), "in-progress")
+    
+    assert len(in_progress_tasks) == 2
+    assert all(task["status"] == "in-progress" for task in in_progress_tasks)
+
+
+def test_list_tasks_by_status_done(tmp_path):
+    """Test filtering tasks by 'done' status"""
+    from src.tasks import create_task, list_tasks_by_status
+
+    path = tmp_path / "tasks.json"
+    
+    create_task(str(path), "Task 1", "desc", status="todo")
+    create_task(str(path), "Task 2", "desc", status="in-progress")
+    create_task(str(path), "Task 3", "desc", status="done")
+    create_task(str(path), "Task 4", "desc", status="done")
+    
+    done_tasks = list_tasks_by_status(str(path), "done")
+    
+    assert len(done_tasks) == 2
+    assert all(task["status"] == "done" for task in done_tasks)
+
+
+def test_list_tasks_by_status_empty_result(tmp_path):
+    """Test filtering returns empty list when no tasks match"""
+    from src.tasks import create_task, list_tasks_by_status
+
+    path = tmp_path / "tasks.json"
+    
+    create_task(str(path), "Task 1", "desc", status="todo")
+    create_task(str(path), "Task 2", "desc", status="todo")
+    
+    in_progress_tasks = list_tasks_by_status(str(path), "in-progress")
+    
+    assert len(in_progress_tasks) == 0
+    assert isinstance(in_progress_tasks, list)
+
+
+def test_list_tasks_by_status_invalid_status(tmp_path):
+    """Test that invalid status raises ValueError"""
+    from src.tasks import create_task, list_tasks_by_status
+    import pytest
+
+    path = tmp_path / "tasks.json"
+    create_task(str(path), "Task 1", "desc", status="todo")
+    
+    with pytest.raises(ValueError) as exc_info:
+        list_tasks_by_status(str(path), "invalid-status")
+    
+    assert "Invalid status" in str(exc_info.value)
+    assert "invalid-status" in str(exc_info.value)
+
+
+def test_list_tasks_by_status_all_statuses(tmp_path):
+    """Test filtering with all three valid statuses"""
+    from src.tasks import create_task, list_tasks_by_status
+
+    path = tmp_path / "tasks.json"
+    
+    create_task(str(path), "Todo 1", "desc", status="todo")
+    create_task(str(path), "Progress 1", "desc", status="in-progress")
+    create_task(str(path), "Done 1", "desc", status="done")
+    create_task(str(path), "Todo 2", "desc", status="todo")
+    create_task(str(path), "Progress 2", "desc", status="in-progress")
+    
+    todo = list_tasks_by_status(str(path), "todo")
+    in_progress = list_tasks_by_status(str(path), "in-progress")
+    done = list_tasks_by_status(str(path), "done")
+    
+    assert len(todo) == 2
+    assert len(in_progress) == 2
+    assert len(done) == 1
+
+
+def test_list_tasks_by_status_preserves_task_data(tmp_path):
+    """Test that filtering preserves all task fields"""
+    from src.tasks import create_task, list_tasks_by_status
+
+    path = tmp_path / "tasks.json"
+    
+    original = create_task(str(path), "Task", "Description", due_date="2025-12-01", status="todo")
+    
+    filtered = list_tasks_by_status(str(path), "todo")
+    
+    assert len(filtered) == 1
+    assert filtered[0]["id"] == original["id"]
+    assert filtered[0]["title"] == original["title"]
+    assert filtered[0]["description"] == original["description"]
+    assert filtered[0]["due_date"] == original["due_date"]
+    assert filtered[0]["status"] == original["status"]
+    assert "createdAt" in filtered[0]
+    assert "updatedAt" in filtered[0]
+
+
+def test_list_tasks_by_status_with_empty_database(tmp_path):
+    """Test filtering on empty database"""
+    from src.tasks import list_tasks_by_status
+
+    path = tmp_path / "tasks.json"
+    path.write_text("[]", encoding="utf-8")
+    
+    result = list_tasks_by_status(str(path), "todo")
+    
+    assert len(result) == 0
+    assert isinstance(result, list)
+
+
+def test_list_tasks_by_status_with_migrated_data(tmp_path):
+    """Test filtering works correctly with migrated data from done field"""
+    from src.tasks import list_tasks_by_status
+
+    path = tmp_path / "tasks.json"
+    
+    # Old data without status field
+    old_tasks = '[{"id": 1, "title": "Old Todo", "done": false}, {"id": 2, "title": "Old Done", "done": true}]'
+    path.write_text(old_tasks, encoding="utf-8")
+    
+    todo = list_tasks_by_status(str(path), "todo")
+    done = list_tasks_by_status(str(path), "done")
+    
+    assert len(todo) == 1
+    assert todo[0]["title"] == "Old Todo"
+    assert len(done) == 1
+    assert done[0]["title"] == "Old Done"
