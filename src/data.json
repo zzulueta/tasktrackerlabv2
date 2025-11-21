@@ -12,5 +12,12 @@
     "description": "milk, eggs",
     "done": false,
     "due_date": "2025-11-12"
+  },
+  {
+    "id": 4,
+    "title": "Test task with due date",
+    "description": "Testing",
+    "done": false,
+    "due_date": "2025-12-25"
   }
 ]

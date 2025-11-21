@@ -65,7 +65,7 @@ python app.py delete 1
 
 - Add a task:
 ```bash
-python app.py add "Task title" --desc "optional description"
+python app.py add "Task title" --desc "optional description" --due "2025-11-30"
 ```
 
 - List tasks:
@@ -81,12 +81,19 @@ python app.py get <id>
 - Update a task (example: mark done):
 ```bash
 python app.py update <id> --done true
+# Update due date
+python app.py update <id> --due "2025-12-31"
 ```
 
 - Delete a task:
 ```bash
 python app.py delete <id>
 ```
+
+Available options:
+- `--desc`: Add or update task description
+- `--due`: Set due date in YYYY-MM-DD format (for add and update commands)
+- `--done`: Mark task as done (true) or not done (false)
 
 See `src/app.py` for the exact argument names and behavior.
 
