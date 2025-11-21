@@ -64,7 +64,7 @@ python app.py delete 1
 
 - Add a task:
 ```bash
-python app.py add "Task title" --desc "optional description"
+python app.py add "Task title" --desc "optional description" --due "2025-11-25"
 ```
 
 - List tasks:
@@ -77,9 +77,9 @@ python app.py list
 python app.py get <id>
 ```
 
-- Update a task (example: mark done):
+- Update a task (example: mark done or set due date):
 ```bash
-python app.py update <id> --done true
+python app.py update <id> --done true --due "2025-12-01"
 ```
 
 - Delete a task:
@@ -97,6 +97,7 @@ Tasks are stored as JSON objects in `src/data.json` inside an array. Typical fie
 - title: string
 - description: string
 - done: boolean
+- due_date: string (optional, format: YYYY-MM-DD)
 
 The current implementation reads the full file into memory, mutates the in-memory structure, and writes the whole file on every change.
 
@@ -107,7 +108,8 @@ Example `src/data.json` entry:
     "id": 1,
     "title": "Buy milk",
     "description": "2 liters",
-    "done": false
+    "done": false,
+    "due_date": "2025-11-25"
   }
 ]
 ```
