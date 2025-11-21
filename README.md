@@ -24,10 +24,10 @@ A tiny, dependency-light Task Tracker implemented in Python that stores tasks in
 
 ## Quickstart
 
-1. Clone the repository and change into the src directory:
+1. Clone the repository:
 ```bash
 git clone https://github.com/zzulueta/tasktrackerlabv2.git
-cd tasktrackerlabv2/src
+cd tasktrackerlabv2
 ```
 
 2. (Optional) Create and activate a virtual environment:
@@ -49,8 +49,9 @@ python -m pip install -r requirements.txt
 pytest -q
 ```
 
-5. Use the CLI:
+5. Use the CLI from the src directory:
 ```bash
+cd src
 python app.py add "Buy milk" --desc "2 liters"
 python app.py list
 python app.py update 1 --done true
@@ -58,7 +59,7 @@ python app.py get 1
 python app.py delete 1
 ```
 
-(If you prefer running from the repository root, prefix commands with `python src/app.py` and adjust paths accordingly.)
+(Alternatively, run commands from the repository root using `python src/app.py` instead of `python app.py`.)
 
 ## CLI reference
 
@@ -97,6 +98,7 @@ Tasks are stored as JSON objects in `src/data.json` inside an array. Typical fie
 - title: string
 - description: string
 - done: boolean
+- due_date: string (optional)
 
 The current implementation reads the full file into memory, mutates the in-memory structure, and writes the whole file on every change.
 
@@ -107,12 +109,13 @@ Example `src/data.json` entry:
     "id": 1,
     "title": "Buy milk",
     "description": "2 liters",
-    "done": false
+    "done": false,
+    "due_date": ""
   }
 ]
 ```
 
-## Development notes &amp; suggestions
+## Development notes & suggestions
 - The JSON file approach is simple and human-readable but is not safe for concurrent writes. If you need reliability, consider migrating to SQLite or adding:
   - File locking
   - Atomic writes (write to a temp file and rename)
